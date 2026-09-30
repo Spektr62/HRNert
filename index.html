@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM · Воронка кандидатов</title>
+<style>
+  :root{
+    --bg:#0e1117;
+    --bg-2:#131720;
+    --panel:#161b26;
+    --panel-2:#1c2230;
+    --card:#1d2432;
+    --card-hover:#232b3c;
+    --border:#272f3f;
+    --text:#e8ebf2;
+    --text-dim:#8992a6;
+    --text-faint:#5c6579;
+    --accent:#2fe6b8;
+    --accent-dim:#1a4a42;
+    --accent-2:#5b8cff;
+    --danger:#ff6b6b;
+    --danger-dim:#3a2226;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  /* Header */
+  header{
+    padding:18px 26px;
+    background:var(--bg-2);
+    border-bottom:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-shrink:0;
+  }
+  header h1{
+    font-size:18px;
+    margin:0;
+    font-weight:600;
+    letter-spacing:.2px;
+  }
+  header h1 span{
+    color:var(--text-dim);
+    font-weight:400;
+    font-size:13px;
+    margin-left:10px;
+  }
+  .header-stats{
+    display:flex;
+    gap:18px;
+    font-size:12px;
+    color:var(--text-dim);
+  }
+  .header-stats b{ color:var(--text); font-weight:600; }
+
+  /* Toolbar: recruiters + search */
+  .toolbar{
+    padding:12px 26px;
+    background:var(--bg-2);
+    border-bottom:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-shrink:0;
+    flex-wrap:wrap;
+  }
+  .recruiter-tabs{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .recruiter-tab{
+    font-size:12px;
+    padding:6px 12px;
+    border-radius:20px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    color:var(--text-dim);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .recruiter-tab:hover{ color:var(--text); border-color:var(--text-faint); }
+  .recruiter-tab.active{
+    background:var(--accent-dim);
+    border-color:var(--accent);
+    color:var(--accent);
+    font-weight:600;
+  }
+  .btn{
+    font-size:12px;
+    padding:6px 12px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--panel-2);
+    color:var(--text);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .btn:hover{ border-color:var(--accent-2); color:var(--accent-2); }
+  .btn.primary{
+    background:var(--accent-dim);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  .toolbar-right{
+    display:flex; align-items:center; gap:8px;
+  }
+  .search-input{
+    font-size:12.5px;
+    padding:7px 11px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    color:var(--text);
+    width:190px;
+  }
+  .search-input::placeholder{ color:var(--text-faint); }
+  .search-input:focus{ outline:none; border-color:var(--accent-2); }
+
+  .stale-dot{
+    display:inline-block;
+    width:6px;height:6px;border-radius:50%;
+    background:#e8a33d;
+    margin-right:5px;
+    box-shadow:0 0 5px #e8a33d;
+  }
+
+  /* Centered modal (add candidate) */
+  .center-modal{
+    position:fixed;
+    top:50%; left:50%;
+    transform:translate(-50%,-48%);
+    width:420px;
+    max-width:90vw;
+    background:var(--bg-2);
+    border:1px solid var(--border);
+    border-radius:12px;
+    z-index:52;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .15s ease, transform .15s ease;
+    max-height:86vh;
+    display:flex;
+    flex-direction:column;
+  }
+  .center-modal.open{
+    opacity:1;
+    pointer-events:auto;
+    transform:translate(-50%,-50%);
+  }
+  .center-modal-header{
+    padding:16px 20px;
+    border-bottom:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .center-modal-header h3{ margin:0; font-size:14.5px; font-weight:700; }
+  .center-modal-body{
+    padding:18px 20px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .field{
+    display:flex; flex-direction:column; gap:5px;
+  }
+  .field label{ font-size:11px; color:var(--text-dim); }
+  .field input, .field select{
+    font-size:12.5px;
+    padding:8px 10px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    color:var(--text);
+  }
+  .field input:focus, .field select:focus{ outline:none; border-color:var(--accent-2); }
+  .center-modal-footer{
+    padding:14px 20px 18px;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    border-top:1px solid var(--border);
+  }
+
+  /* Board */
+  .board{
+    flex:1;
+    display:flex;
+    gap:14px;
+    padding:18px 26px;
+    overflow-x:auto;
+    overflow-y:hidden;
+  }
+  .column{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    width:268px;
+    min-width:268px;
+    display:flex;
+    flex-direction:column;
+    max-height:100%;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .column.drag-over{
+    border-color:var(--accent-2);
+    background:var(--panel-2);
+  }
+  .column-header{
+    padding:13px 14px 11px;
+    border-bottom:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-shrink:0;
+  }
+  .column-header .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--text-faint);
+    display:inline-block;
+    margin-right:8px;
+  }
+  .column[data-stage="reaction"] .column-header .dot{ background:var(--accent); box-shadow:0 0 8px var(--accent); }
+  .column[data-stage="ignore"] .column-header .dot{ background:var(--danger); }
+  .column-title{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text);
+    display:flex;
+    align-items:center;
+  }
+  .column-count{
+    font-size:11px;
+    color:var(--text-dim);
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:1px 8px;
+    min-width:18px;
+    text-align:center;
+  }
+  .column-body{
+    flex:1;
+    overflow-y:auto;
+    padding:10px;
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+  }
+  .column-body::-webkit-scrollbar, .board::-webkit-scrollbar, .modal-body::-webkit-scrollbar{
+    width:8px; height:8px;
+  }
+  .column-body::-webkit-scrollbar-thumb, .board::-webkit-scrollbar-thumb, .modal-body::-webkit-scrollbar-thumb{
+    background:var(--border); border-radius:8px;
+  }
+  .empty-hint{
+    font-size:11.5px;
+    color:var(--text-faint);
+    text-align:center;
+    padding:18px 6px;
+    border:1px dashed var(--border);
+    border-radius:8px;
+  }
+
+  /* Card */
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-left:3px solid var(--border);
+    border-radius:9px;
+    padding:11px 12px;
+    cursor:grab;
+    transition:background .12s ease, transform .12s ease, box-shadow .12s ease;
+  }
+  .card:hover{
+    background:var(--card-hover);
+    box-shadow:0 4px 14px rgba(0,0,0,.28);
+  }
+  .card.dragging{
+    opacity:.4;
+  }
+  .card[data-stage="reaction"]{
+    border-left-color:var(--accent);
+    box-shadow:0 0 0 1px var(--accent-dim) inset;
+  }
+  .card[data-stage="ignore"]{
+    border-left-color:var(--danger);
+    opacity:.82;
+  }
+  .card-top{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin-bottom:8px;
+  }
+  .avatar{
+    width:30px;height:30px;border-radius:50%;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-size:11.5px;font-weight:700;
+    color:var(--accent-2);
+    flex-shrink:0;
+  }
+  .card-name{
+    font-size:13px;
+    font-weight:600;
+    color:var(--text);
+    line-height:1.25;
+  }
+  .card-source{
+    font-size:10.5px;
+    color:var(--text-faint);
+  }
+  .card-meta{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  .card-stage-chip{
+    font-size:10px;
+    padding:2px 7px;
+    border-radius:20px;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text-dim);
+  }
+  .card[data-stage="reaction"] .card-stage-chip{
+    background:var(--accent-dim);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  .card[data-stage="ignore"] .card-stage-chip{
+    background:var(--danger-dim);
+    border-color:var(--danger);
+    color:var(--danger);
+  }
+
+  /* Modal / detail panel */
+  .overlay{
+    position:fixed; inset:0;
+    background:rgba(5,7,11,.55);
+    backdrop-filter:blur(2px);
+    opacity:0; pointer-events:none;
+    transition:opacity .18s ease;
+    z-index:50;
+  }
+  .overlay.open{ opacity:1; pointer-events:auto; }
+
+  .detail-panel{
+    position:fixed;
+    top:0; right:0;
+    height:100%;
+    width:440px;
+    max-width:92vw;
+    background:var(--bg-2);
+    border-left:1px solid var(--border);
+    transform:translateX(100%);
+    transition:transform .2s ease;
+    z-index:51;
+    display:flex;
+    flex-direction:column;
+  }
+  .detail-panel.open{ transform:translateX(0); }
+
+  .detail-header{
+    padding:18px 20px;
+    border-bottom:1px solid var(--border);
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    flex-shrink:0;
+  }
+  .detail-id{
+    display:flex; gap:12px; align-items:center;
+  }
+  .detail-avatar{
+    width:46px;height:46px;border-radius:50%;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-size:16px;font-weight:700;
+    color:var(--accent-2);
+  }
+  .detail-name{ font-size:16px; font-weight:700; }
+  .detail-source{ font-size:11.5px; color:var(--text-dim); margin-top:2px; }
+  .close-btn{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    width:30px;height:30px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:15px;
+    line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .close-btn:hover{ color:var(--text); border-color:var(--text-faint); }
+
+  .back-link{
+    padding:10px 20px 0;
+    flex-shrink:0;
+  }
+  .back-link button{
+    background:none;
+    border:none;
+    color:var(--accent-2);
+    font-size:12px;
+    cursor:pointer;
+    padding:0;
+  }
+  .back-link button:hover{ text-decoration:underline; }
+
+  .modal-body{
+    flex:1;
+    overflow-y:auto;
+    padding:16px 20px 26px;
+  }
+
+  .status-row{
+    display:flex; align-items:center; gap:8px;
+    margin-bottom:18px;
+  }
+  .status-label{ font-size:11px; color:var(--text-dim); }
+  .current-stage-chip{
+    font-size:11.5px;
+    font-weight:600;
+    padding:4px 10px;
+    border-radius:20px;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+  }
+
+  .section-title{
+    font-size:11.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:var(--text-dim);
+    margin:22px 0 10px;
+  }
+  .section-title:first-of-type{ margin-top:0; }
+
+  .contact-grid{
+    display:flex; flex-direction:column; gap:7px;
+  }
+  .contact-row{
+    display:flex; justify-content:space-between;
+    font-size:12.5px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:8px 11px;
+  }
+  .contact-row .k{ color:var(--text-dim); }
+  .contact-row .v{ color:var(--text); font-weight:500; }
+
+  /* timeline */
+  .timeline{
+    position:relative;
+    padding-left:18px;
+  }
+  .timeline::before{
+    content:"";
+    position:absolute; left:4px; top:4px; bottom:4px;
+    width:1px;
+    background:var(--border);
+  }
+  .timeline-item{
+    position:relative;
+    padding-bottom:16px;
+  }
+  .timeline-item:last-child{ padding-bottom:0; }
+  .timeline-item::before{
+    content:"";
+    position:absolute; left:-18px; top:3px;
+    width:9px;height:9px;border-radius:50%;
+    background:var(--panel);
+    border:2px solid var(--accent-2);
+  }
+  .timeline-item.is-current::before{
+    background:var(--accent);
+    border-color:var(--accent);
+    box-shadow:0 0 6px var(--accent);
+  }
+  .timeline-stage{ font-size:12.5px; font-weight:600; }
+  .timeline-date{ font-size:11px; color:var(--text-faint); margin-top:1px; }
+
+  /* messages */
+  .messages{
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .msg{
+    max-width:86%;
+    padding:8px 11px;
+    border-radius:10px;
+    font-size:12.5px;
+    line-height:1.4;
+  }
+  .msg .meta{
+    font-size:10px;
+    color:var(--text-faint);
+    margin-bottom:3px;
+  }
+  .msg.lead{
+    align-self:flex-start;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-bottom-left-radius:2px;
+  }
+  .msg.manager{
+    align-self:flex-end;
+    background:var(--accent-dim);
+    border:1px solid #235349;
+    border-bottom-right-radius:2px;
+  }
+
+  .drag-hint{
+    text-align:center;
+    font-size:11.5px;
+    color:var(--text-faint);
+    padding:8px 26px 14px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CRM · Воронка кандидатов<span>прототип доски</span></h1>
+  <div class="header-stats" id="headerStats"></div>
+</header>
+
+<div class="toolbar">
+  <div class="recruiter-tabs" id="recruiterTabs"></div>
+  <div class="toolbar-right">
+    <input type="text" class="search-input" id="searchInput" placeholder="Поиск по имени или источнику…">
+    <button class="btn primary" id="addCandidateBtn">+ Кандидат</button>
+  </div>
+</div>
+
+<div class="board" id="board"></div>
+<div class="drag-hint">Перетащите карточку между колонками, чтобы изменить статус кандидата · клик по карточке открывает детали</div>
+
+<div class="overlay" id="overlay"></div>
+<div class="detail-panel" id="detailPanel">
+  <div class="detail-header">
+    <div class="detail-id">
+      <div class="detail-avatar" id="detailAvatar"></div>
+      <div>
+        <div class="detail-name" id="detailName"></div>
+        <div class="detail-source" id="detailSource"></div>
+      </div>
+    </div>
+    <button class="close-btn" id="closeBtn" title="Закрыть">✕</button>
+  </div>
+  <div class="back-link">
+    <button id="backBtn">← Назад к доске</button>
+  </div>
+  <div class="modal-body">
+    <div class="status-row">
+      <span class="status-label">Текущий статус:</span>
+      <span class="current-stage-chip" id="detailStageChip"></span>
+    </div>
+
+    <div class="section-title">Контакты</div>
+    <div class="contact-grid" id="detailContacts"></div>
+
+    <div class="section-title">История переходов по воронке</div>
+    <div class="timeline" id="detailTimeline"></div>
+
+    <div class="section-title">История переписки</div>
+    <div class="messages" id="detailMessages"></div>
+  </div>
+</div>
+
+<div class="center-modal" id="addCandidateModal">
+  <div class="center-modal-header">
+    <h3>Новый кандидат</h3>
+    <button class="close-btn" id="addCandidateCloseBtn" title="Закрыть">✕</button>
+  </div>
+  <div class="center-modal-body">
+    <div class="field"><label>Имя *</label><input type="text" id="newName" placeholder="Иван Иванов"></div>
+    <div class="field"><label>Телефон</label><input type="text" id="newPhone" placeholder="+7 900 000-00-00"></div>
+    <div class="field"><label>Email</label><input type="text" id="newEmail" placeholder="name@mail.ru"></div>
+    <div class="field"><label>Telegram</label><input type="text" id="newTelegram" placeholder="@username"></div>
+    <div class="field"><label>Источник</label><input type="text" id="newSource" placeholder="Сайт, соцсети, реферал…"></div>
+    <div class="field"><label>Стартовый статус</label>
+      <select id="newStage"></select>
+    </div>
+  </div>
+  <div class="center-modal-footer">
+    <button class="btn" id="addCandidateCancelBtn">Отмена</button>
+    <button class="btn primary" id="addCandidateSubmitBtn">Добавить</button>
+  </div>
+</div>
+
+<script>
+const STAGES = [
+  { key:'reserve',  title:'Резерв' },
+  { key:'contact1', title:'Первый контакт' },
+  { key:'content',  title:'Полезный контент' },
+  { key:'reaction', title:'Есть реакция' },
+  { key:'activity', title:'Участие в активностях' },
+  { key:'offer',    title:'Направлен оффер' },
+  { key:'ignore',   title:'Игнор' },
+];
+const STAGE_TITLE = Object.fromEntries(STAGES.map(s => [s.key, s.title]));
+
+let recruiters = [
+  { id:'ivan', name:'Иван Петров' },
+  { id:'olga', name:'Ольга Смирнова' },
+];
+let currentRecruiterId = recruiters[0].id;
+let searchTerm = '';
+
+let leads = [
+  {
+    id:1, name:'Анна Смирнова', source:'Сайт (форма заявки)',
+    phone:'+7 916 123-45-67', email:'anna.smirnova@mail.ru', telegram:'@anna_smirnova',
+    stage:'reserve',
+    history:[ {stage:'reserve', date:'28.09.2026'} ],
+    messages:[
+      {date:'28.09.2026 09:40', from:'manager', text:'Здравствуйте, Анна! Спасибо за заявку на сайте — добавила вас в базу, скоро свяжусь по деталям.'}
+    ]
+  },
+  {
+    id:2, name:'Дмитрий Ковалёв', source:'Реферальная программа',
+    phone:'+7 903 552-10-88', email:'d.kovalev88@gmail.com', telegram:'@dkovalev',
+    stage:'reserve',
+    history:[ {stage:'reserve', date:'26.09.2026'} ],
+    messages:[]
+  },
+  {
+    id:3, name:'Роман Захаров', source:'Конференция «ProductTech»',
+    phone:'+7 926 741-20-05', email:'r.zaharov@yandex.ru', telegram:'@r_zaharov',
+    stage:'reserve',
+    history:[ {stage:'reserve', date:'29.09.2026'} ],
+    messages:[]
+  },
+  {
+    id:4, name:'Светлана Павлова', source:'Соцсети (Instagram)',
+    phone:'+7 985 330-44-19', email:'sv.pavlova@mail.ru', telegram:'@sveta_pavlova',
+    stage:'reserve',
+    history:[ {stage:'reserve', date:'30.09.2026'} ],
+    messages:[
+      {date:'30.09.2026 11:05', from:'manager', text:'Добрый день, Светлана! Видела ваш комментарий под постом — подскажите, какой у вас сейчас опыт в проекте?'}
+    ]
+  },
+
+  {
+    id:5, name:'Игорь Соколов', source:'Холодная база',
+    phone:'+7 909 214-77-63', email:'igor.sokolov@bk.ru', telegram:'@igor_sokolov',
+    stage:'contact1',
+    history:[ {stage:'reserve', date:'20.09.2026'}, {stage:'contact1', date:'24.09.2026'} ],
+    messages:[
+      {date:'24.09.2026 15:20', from:'manager', text:'Игорь, добрый день! Меня зовут Мария, пишу по поводу вашей анкеты. Расскажите пару слов о себе — чем занимаетесь сейчас?'}
+    ]
+  },
+  {
+    id:6, name:'Наталья Лебедева', source:'LinkedIn',
+    phone:'+7 917 088-52-31', email:'natalia.lebedeva@outlook.com', telegram:'@n_lebedeva',
+    stage:'contact1',
+    history:[ {stage:'reserve', date:'19.09.2026'}, {stage:'contact1', date:'25.09.2026'} ],
+    messages:[
+      {date:'25.09.2026 10:12', from:'manager', text:'Наталья, здравствуйте! Нашла ваш профиль на LinkedIn, хотела предложить пообщаться о возможностях сотрудничества.'}
+    ]
+  },
+  {
+    id:7, name:'Денис Григорьев', source:'Вебинар «Рост в 2026»',
+    phone:'+7 995 440-61-27', email:'denis.grigoriev@gmail.com', telegram:'@d_grigoriev',
+    stage:'contact1',
+    history:[ {stage:'reserve', date:'22.09.2026'}, {stage:'contact1', date:'27.09.2026'} ],
+    messages:[
+      {date:'27.09.2026 18:45', from:'manager', text:'Денис, добрый вечер! Спасибо, что остались на вебинаре до конца. Хотела уточнить, насколько тема была актуальна для вас?'}
+    ]
+  },
+
+  {
+    id:8, name:'Мария Новикова', source:'Сайт (форма заявки)',
+    phone:'+7 921 665-30-40', email:'maria.novikova@mail.ru', telegram:'@m_novikova',
+    stage:'content',
+    history:[ {stage:'reserve', date:'10.09.2026'}, {stage:'contact1', date:'13.09.2026'}, {stage:'content', date:'19.09.2026'} ],
+    messages:[
+      {date:'13.09.2026 12:00', from:'manager', text:'Мария, здравствуйте! Рада знакомству — расскажите, какие задачи сейчас в приоритете?'},
+      {date:'19.09.2026 09:30', from:'manager', text:'Подготовила для вас подборку материалов по теме — гайд и разбор кейсов, отправляю в файле.'}
+    ]
+  },
+  {
+    id:9, name:'Алексей Козлов', source:'Реферальная программа',
+    phone:'+7 906 812-93-05', email:'a.kozlov@yandex.ru', telegram:'@alex_kozlov',
+    stage:'content',
+    history:[ {stage:'reserve', date:'12.09.2026'}, {stage:'contact1', date:'15.09.2026'}, {stage:'content', date:'21.09.2026'} ],
+    messages:[
+      {date:'15.09.2026 14:10', from:'manager', text:'Алексей, добрый день! Спасибо, что откликнулись. Коротко: чем сейчас занимаетесь и что ищете?'},
+      {date:'21.09.2026 16:00', from:'manager', text:'Скинула статью и короткое видео — думаю, будет полезно перед следующим шагом.'}
+    ]
+  },
+  {
+    id:10, name:'Елена Романова', source:'Соцсети (VK)',
+    phone:'+7 981 274-18-56', email:'elena.romanova@mail.ru', telegram:'@e_romanova',
+    stage:'content',
+    history:[ {stage:'reserve', date:'14.09.2026'}, {stage:'contact1', date:'17.09.2026'}, {stage:'content', date:'23.09.2026'} ],
+    messages:[
+      {date:'17.09.2026 11:25', from:'manager', text:'Елена, привет! Подскажите, откуда узнали о нас и что было бы интересно обсудить?'},
+      {date:'23.09.2026 13:40', from:'manager', text:'Отправляю чек-лист, который поможет разобраться в основных шагах — гляньте, когда будет время.'}
+    ]
+  },
+
+  {
+    id:11, name:'Екатерина Волкова', source:'Вебинар «Рост в 2026»',
+    phone:'+7 925 330-71-92', email:'kate.volkova@gmail.com', telegram:'@k_volkova',
+    stage:'reaction',
+    history:[ {stage:'reserve', date:'05.09.2026'}, {stage:'contact1', date:'08.09.2026'}, {stage:'content', date:'14.09.2026'}, {stage:'reaction', date:'22.09.2026'} ],
+    messages:[
+      {date:'14.09.2026 10:00', from:'manager', text:'Екатерина, добрый день! Отправляю материалы по теме, которую мы обсуждали на вебинаре.'},
+      {date:'21.09.2026 19:12', from:'lead', text:'Спасибо, посмотрела гайд — очень актуально, особенно раздел про метрики. Можно подробнее про следующий этап?'},
+      {date:'22.09.2026 09:05', from:'manager', text:'Конечно! Предлагаю созвониться на 20 минут на этой неделе, чтобы всё обсудить — как вам удобнее?'}
+    ]
+  },
+  {
+    id:12, name:'Виктория Егорова', source:'Сайт (форма заявки)',
+    phone:'+7 968 402-55-17', email:'v.egorova@mail.ru', telegram:'@vika_egorova',
+    stage:'reaction',
+    history:[ {stage:'reserve', date:'02.09.2026'}, {stage:'contact1', date:'06.09.2026'}, {stage:'content', date:'12.09.2026'}, {stage:'reaction', date:'20.09.2026'} ],
+    messages:[
+      {date:'12.09.2026 15:30', from:'manager', text:'Виктория, здравствуйте! Собрала для вас подборку кейсов — думаю, будет полезно для вашей ситуации.'},
+      {date:'19.09.2026 20:44', from:'lead', text:'Добрый вечер! Прочитала кейсы, очень понравился третий пример. Хотела бы узнать детали по условиям участия.'},
+      {date:'20.09.2026 08:50', from:'manager', text:'Отлично, что откликнулось! Подготовлю подробности и пришлю в течение дня.'}
+    ]
+  },
+  {
+    id:13, name:'Артём Васильев', source:'LinkedIn',
+    phone:'+7 999 118-64-30', email:'artem.vasiliev@outlook.com', telegram:'@a_vasiliev',
+    stage:'reaction',
+    history:[ {stage:'reserve', date:'01.09.2026'}, {stage:'contact1', date:'04.09.2026'}, {stage:'content', date:'11.09.2026'}, {stage:'reaction', date:'24.09.2026'} ],
+    messages:[
+      {date:'11.09.2026 09:15', from:'manager', text:'Артём, добрый день! Отправляю материал, который поможет разобраться в деталях предложения.'},
+      {date:'23.09.2026 21:02', from:'lead', text:'Изучил, есть пара вопросов по срокам и формату участия — когда удобно обсудить?'},
+      {date:'24.09.2026 10:00', from:'manager', text:'Давайте завтра в 15:00, наберу вас по видеосвязи.'}
+    ]
+  },
+
+  {
+    id:14, name:'Ольга Петрова', source:'Реферальная программа',
+    phone:'+7 916 774-22-08', email:'olga.petrova@mail.ru', telegram:'@olga_petrova',
+    stage:'activity',
+    history:[ {stage:'reserve', date:'20.08.2026'}, {stage:'contact1', date:'24.08.2026'}, {stage:'content', date:'29.08.2026'}, {stage:'reaction', date:'05.09.2026'}, {stage:'activity', date:'15.09.2026'} ],
+    messages:[
+      {date:'05.09.2026 11:40', from:'lead', text:'Спасибо за материалы, было очень полезно! Готова узнать про следующие шаги.'},
+      {date:'10.09.2026 14:00', from:'manager', text:'Приглашаю вас на практический интенсив 15 сентября — отличная возможность познакомиться с командой поближе.'},
+      {date:'15.09.2026 18:30', from:'lead', text:'Была на интенсиве, очень понравилось! Особенно блок про командную работу.'}
+    ]
+  },
+  {
+    id:15, name:'Андрей Фёдоров', source:'Конференция «ProductTech»',
+    phone:'+7 903 665-14-77', email:'andrey.fedorov@gmail.com', telegram:'@a_fedorov',
+    stage:'activity',
+    history:[ {stage:'reserve', date:'18.08.2026'}, {stage:'contact1', date:'22.08.2026'}, {stage:'content', date:'27.08.2026'}, {stage:'reaction', date:'02.09.2026'}, {stage:'activity', date:'18.09.2026'} ],
+    messages:[
+      {date:'02.09.2026 16:20', from:'lead', text:'Идея с пробным проектом очень интересна, хочу поучаствовать.'},
+      {date:'12.09.2026 10:00', from:'manager', text:'Записала вас на ближайший демо-день 18 сентября — пришлю ссылку и программу заранее.'},
+      {date:'18.09.2026 19:50', from:'lead', text:'Демо-день прошёл отлично, познакомился с частью команды. Что дальше по процессу?'}
+    ]
+  },
+
+  {
+    id:16, name:'Сергей Морозов', source:'Сайт (форма заявки)',
+    phone:'+7 926 350-88-41', email:'sergey.morozov@yandex.ru', telegram:'@s_morozov',
+    stage:'offer',
+    history:[ {stage:'reserve', date:'10.08.2026'}, {stage:'contact1', date:'14.08.2026'}, {stage:'content', date:'20.08.2026'}, {stage:'reaction', date:'28.08.2026'}, {stage:'activity', date:'08.09.2026'}, {stage:'offer', date:'21.09.2026'} ],
+    messages:[
+      {date:'08.09.2026 13:10', from:'lead', text:'Участие в активностях очень понравилось, чувствую, что это моё.'},
+      {date:'18.09.2026 09:00', from:'manager', text:'Сергей, по итогам всех этапов подготовили для вас индивидуальное предложение — отправляю документ.'},
+      {date:'21.09.2026 20:15', from:'lead', text:'Спасибо! Изучаю условия, вернусь с вопросами на неделе.'}
+    ]
+  },
+  {
+    id:17, name:'Татьяна Семёнова', source:'Реферальная программа',
+    phone:'+7 985 227-39-64', email:'tatiana.semenova@mail.ru', telegram:'@t_semenova',
+    stage:'offer',
+    history:[ {stage:'reserve', date:'05.08.2026'}, {stage:'contact1', date:'09.08.2026'}, {stage:'content', date:'15.08.2026'}, {stage:'reaction', date:'22.08.2026'}, {stage:'activity', date:'02.09.2026'}, {stage:'offer', date:'25.09.2026'} ],
+    messages:[
+      {date:'02.09.2026 17:05', from:'lead', text:'Спасибо за организацию, всё прошло очень чётко и интересно.'},
+      {date:'23.09.2026 11:30', from:'manager', text:'Татьяна, рады были видеть вас на всех этапах! Направляю финальное предложение по условиям сотрудничества.'},
+      {date:'25.09.2026 08:40', from:'lead', text:'Получила, спасибо. Обсужу с семьёй и дам ответ на этой неделе.'}
+    ]
+  },
+
+  {
+    id:18, name:'Павел Кузнецов', source:'Холодная база',
+    phone:'+7 909 441-77-20', email:'pavel.kuznetsov@bk.ru', telegram:'@p_kuznetsov',
+    stage:'ignore',
+    history:[ {stage:'reserve', date:'01.09.2026'}, {stage:'contact1', date:'04.09.2026'}, {stage:'ignore', date:'18.09.2026'} ],
+    messages:[
+      {date:'04.09.2026 10:00', from:'manager', text:'Павел, добрый день! Пишу по поводу вашей анкеты, расскажите немного о себе?'},
+      {date:'08.09.2026 09:30', from:'manager', text:'Павел, напоминаю о себе — если интересно, буду рада ответить на вопросы.'},
+      {date:'18.09.2026 09:30', from:'manager', text:'Не получили ответа уже две недели, переношу в статус «игнор». Будем рады, если напишете позже.'}
+    ]
+  },
+  {
+    id:19, name:'Юлия Никитина', source:'Соцсети (Instagram)',
+    phone:'+7 917 630-25-11', email:'julia.nikitina@gmail.com', telegram:'@j_nikitina',
+    stage:'ignore',
+    history:[ {stage:'reserve', date:'25.08.2026'}, {stage:'contact1', date:'28.08.2026'}, {stage:'content', date:'03.09.2026'}, {stage:'ignore', date:'20.09.2026'} ],
+    messages:[
+      {date:'28.08.2026 12:15', from:'manager', text:'Юлия, здравствуйте! Спасибо за интерес, расскажите, что вас привлекло?'},
+      {date:'03.09.2026 14:00', from:'manager', text:'Отправляю материалы, которые обсуждали — буду рада обратной связи.'},
+      {date:'20.09.2026 10:00', from:'manager', text:'Давно нет ответа, перевожу анкету в «игнор». Контакты сохраняю на будущее.'}
+    ]
+  },
+  {
+    id:20, name:'Максим Орлов', source:'Вебинар «Рост в 2026»',
+    phone:'+7 926 508-63-90', email:'maxim.orlov@yandex.ru', telegram:'@m_orlov',
+    stage:'ignore',
+    history:[ {stage:'reserve', date:'15.08.2026'}, {stage:'contact1', date:'19.08.2026'}, {stage:'content', date:'25.08.2026'}, {stage:'reaction', date:'01.09.2026'}, {stage:'ignore', date:'16.09.2026'} ],
+    messages:[
+      {date:'01.09.2026 18:20', from:'lead', text:'Спасибо, интересно, свяжусь позже — сейчас загружен другими делами.'},
+      {date:'10.09.2026 09:00', from:'manager', text:'Максим, напоминаю о себе, если появится время — буду рада продолжить диалог.'},
+      {date:'16.09.2026 09:00', from:'manager', text:'Не получили ответа больше двух недель, переношу в «игнор». Контакт остаётся в базе.'}
+    ]
+  },
+];
+
+leads.forEach(l => { l.recruiter = (l.id % 2 === 1) ? recruiters[0].id : recruiters[1].id; });
+
+loadState();
+
+let openLeadId = null;
+let dragId = null;
+
+function initials(name){
+  return name.split(' ').filter(Boolean).slice(0,2).map(w => w[0]).join('').toUpperCase();
+}
+
+function parseDate(str){
+  const [datePart, timePart] = str.split(' ');
+  const [d,m,y] = datePart.split('.').map(Number);
+  if(timePart){
+    const [hh,mm] = timePart.split(':').map(Number);
+    return new Date(y, m-1, d, hh, mm);
+  }
+  return new Date(y, m-1, d);
+}
+
+function lastActionDate(lead){
+  return lead.history[lead.history.length-1].date;
+}
+
+function todayFormatted(){
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `${pad(now.getDate())}.${pad(now.getMonth()+1)}.${now.getFullYear()}`;
+}
+
+function daysSince(dateStr){
+  const d = parseDate(dateStr);
+  const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const now = new Date();
+  const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((nowOnly - dOnly) / 86400000);
+}
+
+function saveState(){
+  localStorage.setItem('crmPrototypeState', JSON.stringify({ leads, recruiters, currentRecruiterId }));
+}
+
+function loadState(){
+  const raw = localStorage.getItem('crmPrototypeState');
+  if(!raw) return;
+  try{
+    const data = JSON.parse(raw);
+    if(data.leads && data.recruiters && data.currentRecruiterId){
+      leads = data.leads;
+      recruiters = data.recruiters;
+      currentRecruiterId = data.currentRecruiterId;
+    }
+  } catch(e){ /* повреждённые данные — игнорируем, останется демо-набор */ }
+}
+
+function renderRecruiterTabs(){
+  const wrap = document.getElementById('recruiterTabs');
+  wrap.innerHTML = recruiters.map(r => {
+    const count = leads.filter(l => l.recruiter === r.id).length;
+    return `<button class="recruiter-tab ${r.id === currentRecruiterId ? 'active' : ''}" data-id="${r.id}">${r.name} <span style="opacity:.6">(${count})</span></button>`;
+  }).join('') + `<button class="btn" id="addRecruiterBtn">+ Рекрутер</button>`;
+
+  wrap.querySelectorAll('.recruiter-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchRecruiter(btn.dataset.id));
+  });
+  document.getElementById('addRecruiterBtn').addEventListener('click', addRecruiterPrompt);
+}
+
+function switchRecruiter(id){
+  if(id === currentRecruiterId) return;
+  currentRecruiterId = id;
+  searchTerm = '';
+  document.getElementById('searchInput').value = '';
+  saveState();
+  render();
+}
+
+function addRecruiterPrompt(){
+  const name = prompt('Имя нового рекрутера:');
+  if(!name || !name.trim()) return;
+  const id = 'r' + Date.now();
+  recruiters.push({ id, name: name.trim() });
+  currentRecruiterId = id;
+  saveState();
+  render();
+}
+
+function matchesSearch(lead){
+  if(!searchTerm) return true;
+  const q = searchTerm.toLowerCase();
+  return lead.name.toLowerCase().includes(q) || lead.source.toLowerCase().includes(q);
+}
+
+function openAddCandidateModal(){
+  document.getElementById('newStage').innerHTML = STAGES.map(s => `<option value="${s.key}">${s.title}</option>`).join('');
+  document.getElementById('newName').value = '';
+  document.getElementById('newPhone').value = '';
+  document.getElementById('newEmail').value = '';
+  document.getElementById('newTelegram').value = '';
+  document.getElementById('newSource').value = '';
+  document.getElementById('newStage').value = 'reserve';
+  showOverlay();
+  document.getElementById('addCandidateModal').classList.add('open');
+}
+
+function closeAddCandidateModal(){
+  document.getElementById('addCandidateModal').classList.remove('open');
+  hideOverlayIfNothingOpen();
+}
+
+function submitAddCandidate(){
+  const name = document.getElementById('newName').value.trim();
+  if(!name){ alert('Укажите имя кандидата'); return; }
+  const stage = document.getElementById('newStage').value;
+  const newId = leads.reduce((max,l) => Math.max(max,l.id), 0) + 1;
+  leads.push({
+    id:newId, name,
+    source: document.getElementById('newSource').value.trim() || 'Не указан',
+    phone: document.getElementById('newPhone').value.trim(),
+    email: document.getElementById('newEmail').value.trim(),
+    telegram: document.getElementById('newTelegram').value.trim(),
+    recruiter: currentRecruiterId,
+    stage,
+    history:[ {stage, date: todayFormatted()} ],
+    messages:[]
+  });
+  saveState();
+  closeAddCandidateModal();
+  render();
+}
+
+function showOverlay(){ document.getElementById('overlay').classList.add('open'); }
+function hideOverlayIfNothingOpen(){
+  const detailOpen = document.getElementById('detailPanel').classList.contains('open');
+  const modalOpen = document.getElementById('addCandidateModal').classList.contains('open');
+  if(!detailOpen && !modalOpen) document.getElementById('overlay').classList.remove('open');
+}
+
+function render(){
+  renderRecruiterTabs();
+
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  const counts = {};
+  const recruiterLeads = leads.filter(l => l.recruiter === currentRecruiterId && matchesSearch(l));
+
+  STAGES.forEach(stage => {
+    const col = document.createElement('div');
+    col.className = 'column';
+    col.dataset.stage = stage.key;
+
+    const stageLeads = recruiterLeads
+      .filter(l => l.stage === stage.key)
+      .sort((a,b) => parseDate(lastActionDate(b)) - parseDate(lastActionDate(a)));
+
+    counts[stage.key] = stageLeads.length;
+
+    col.innerHTML = `
+      <div class="column-header">
+        <div class="column-title"><span class="dot"></span>${stage.title}</div>
+        <div class="column-count">${stageLeads.length}</div>
+      </div>
+      <div class="column-body" data-stage="${stage.key}"></div>
+    `;
+
+    const body = col.querySelector('.column-body');
+
+    if(stageLeads.length === 0){
+      body.innerHTML = `<div class="empty-hint">Нет кандидатов</div>`;
+    } else {
+      stageLeads.forEach(lead => body.appendChild(renderCard(lead)));
+    }
+
+    col.addEventListener('dragover', e => {
+      e.preventDefault();
+      col.classList.add('drag-over');
+    });
+    col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+    col.addEventListener('drop', e => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      if(dragId != null) moveLead(dragId, stage.key);
+    });
+
+    board.appendChild(col);
+  });
+
+  document.getElementById('headerStats').innerHTML =
+    `<span>На доске: <b>${recruiterLeads.length}</b></span>` +
+    STAGES.map(s => `<span>${s.title}: <b>${counts[s.key]}</b></span>`).join('');
+}
+
+function renderCard(lead){
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.draggable = true;
+  card.dataset.stage = lead.stage;
+  card.dataset.id = lead.id;
+
+  card.innerHTML = `
+    <div class="card-top">
+      <div class="avatar">${initials(lead.name)}</div>
+      <div>
+        <div class="card-name">${lead.name}</div>
+        <div class="card-source">${lead.source}</div>
+      </div>
+    </div>
+    <div class="card-meta">
+      <span class="card-stage-chip">${STAGE_TITLE[lead.stage]}</span>
+      <span>${daysSince(lastActionDate(lead)) >= 5 ? `<span class="stale-dot" title="Нет активности 5+ дней"></span>` : ''}${lastActionDate(lead)}</span>
+    </div>
+  `;
+
+  card.addEventListener('dragstart', e => {
+    dragId = lead.id;
+    card.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', String(lead.id));
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    card.dataset.justDragged = '1';
+    dragId = null;
+  });
+  card.addEventListener('click', () => {
+    if(card.dataset.justDragged === '1'){
+      card.dataset.justDragged = '';
+      return;
+    }
+    openDetail(lead.id);
+  });
+
+  return card;
+}
+
+function moveLead(id, newStage){
+  const lead = leads.find(l => l.id === Number(id));
+  if(!lead || lead.stage === newStage) return;
+  lead.stage = newStage;
+  lead.history.push({ stage:newStage, date: todayFormatted() });
+  saveState();
+  render();
+  if(openLeadId === lead.id) renderDetail(lead);
+}
+
+function openDetail(id){
+  const lead = leads.find(l => l.id === id);
+  if(!lead) return;
+  openLeadId = id;
+  renderDetail(lead);
+  showOverlay();
+  document.getElementById('detailPanel').classList.add('open');
+}
+
+function closeDetail(){
+  openLeadId = null;
+  document.getElementById('detailPanel').classList.remove('open');
+  hideOverlayIfNothingOpen();
+}
+
+function renderDetail(lead){
+  document.getElementById('detailAvatar').textContent = initials(lead.name);
+  document.getElementById('detailName').textContent = lead.name;
+  document.getElementById('detailSource').textContent = lead.source;
+
+  const chip = document.getElementById('detailStageChip');
+  chip.textContent = STAGE_TITLE[lead.stage];
+  chip.style.background = lead.stage === 'reaction' ? 'var(--accent-dim)' : lead.stage === 'ignore' ? 'var(--danger-dim)' : 'var(--panel-2)';
+  chip.style.borderColor = lead.stage === 'reaction' ? 'var(--accent)' : lead.stage === 'ignore' ? 'var(--danger)' : 'var(--border)';
+  chip.style.color = lead.stage === 'reaction' ? 'var(--accent)' : lead.stage === 'ignore' ? 'var(--danger)' : 'var(--text)';
+
+  document.getElementById('detailContacts').innerHTML = `
+    <div class="contact-row"><span class="k">Телефон</span><span class="v">${lead.phone}</span></div>
+    <div class="contact-row"><span class="k">Email</span><span class="v">${lead.email}</span></div>
+    <div class="contact-row"><span class="k">Telegram</span><span class="v">${lead.telegram}</span></div>
+    <div class="contact-row"><span class="k">Источник</span><span class="v">${lead.source}</span></div>
+  `;
+
+  document.getElementById('detailTimeline').innerHTML = lead.history.map((h, i) => `
+    <div class="timeline-item ${i === lead.history.length-1 ? 'is-current' : ''}">
+      <div class="timeline-stage">${STAGE_TITLE[h.stage]}</div>
+      <div class="timeline-date">${h.date}</div>
+    </div>
+  `).join('');
+
+  const msgs = lead.messages;
+  document.getElementById('detailMessages').innerHTML = msgs.length
+    ? msgs.map(m => `
+        <div class="msg ${m.from === 'lead' ? 'lead' : 'manager'}">
+          <div class="meta">${m.from === 'lead' ? lead.name.split(' ')[0] : 'Мария (менеджер)'} · ${m.date}</div>
+          ${m.text}
+        </div>
+      `).join('')
+    : `<div class="empty-hint">Переписки пока нет</div>`;
+}
+
+document.getElementById('overlay').addEventListener('click', () => { closeDetail(); closeAddCandidateModal(); });
+document.getElementById('closeBtn').addEventListener('click', closeDetail);
+document.getElementById('backBtn').addEventListener('click', closeDetail);
+document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeDetail(); closeAddCandidateModal(); } });
+
+document.getElementById('addCandidateBtn').addEventListener('click', openAddCandidateModal);
+document.getElementById('addCandidateCloseBtn').addEventListener('click', closeAddCandidateModal);
+document.getElementById('addCandidateCancelBtn').addEventListener('click', closeAddCandidateModal);
+document.getElementById('addCandidateSubmitBtn').addEventListener('click', submitAddCandidate);
+
+document.getElementById('searchInput').addEventListener('input', e => {
+  searchTerm = e.target.value.trim();
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
